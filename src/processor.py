@@ -24,7 +24,7 @@ class VoiceMemoProcessor:
         self.dropbox = DropboxClient(config.dropbox)
         self.transcription = TranscriptionService(config.transcription)
         self.llm = LLMProcessor(config.llm)
-        self.organizer = FileOrganizer(config.processing)
+        self.organizer = FileOrganizer(config.processing, self.dropbox)
         
         # Error handling
         self.error_handler = ErrorHandler(max_retries=3, base_delay=2.0)

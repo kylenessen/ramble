@@ -23,7 +23,18 @@ class TranscriptionService:
             raise ValueError(f"Unsupported transcription service: {config.service}")
         
         aai.settings.api_key = config.api_key
-        self.client = aai.Transcriber()
+        
+        # Configure transcription settings optimized for voice memos
+        self.transcription_config = aai.TranscriptionConfig(
+            speaker_labels=True,
+            format_text=True,
+            punctuate=True,
+            disfluencies=True,
+            speech_model=aai.SpeechModel.slam_1,
+            language_code="en_us"
+        )
+        
+        self.client = aai.Transcriber(config=self.transcription_config)
         
         self.logger.info("Initialized AssemblyAI transcription service")
     
@@ -32,28 +43,8 @@ class TranscriptionService:
         self.logger.info(f"Starting transcription of: {audio_path.name}")
         
         try:
-            # Configure transcription settings
-            config = aai.TranscriptionConfig(
-                speech_model=aai.SpeechModel.best,
-                punctuate=True,
-                format_text=True,
-                language_detection=True
-            )
-            
-            # Submit transcription job
-            transcript = self.client.transcribe(str(audio_path), config=config)
-            
-            # Wait for completion with retries
-            max_retries = 3
-            retry_count = 0
-            
-            while transcript.status in [aai.TranscriptStatus.processing, aai.TranscriptStatus.queued]:
-                if retry_count >= max_retries:
-                    raise Exception("Transcription timed out after maximum retries")
-                
-                time.sleep(10)  # Wait 10 seconds between checks
-                transcript = self.client.get_transcript(transcript.id)
-                retry_count += 1
+            # Submit transcription job (this will wait for completion)
+            transcript = self.client.transcribe(str(audio_path))
             
             if transcript.status == aai.TranscriptStatus.error:
                 raise Exception(f"Transcription failed: {transcript.error}")
@@ -61,9 +52,9 @@ class TranscriptionService:
             # Extract transcript data
             result = {
                 'text': transcript.text,
-                'confidence': transcript.confidence,
-                'audio_duration': transcript.audio_duration,
-                'language_code': transcript.language_code,
+                'confidence': getattr(transcript, 'confidence', 0.0),
+                'audio_duration': getattr(transcript, 'audio_duration', 0),
+                'language_code': 'en_us',  # We set this explicitly in config
                 'words': [],
                 'sentences': []
             }

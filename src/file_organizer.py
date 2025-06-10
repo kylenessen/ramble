@@ -17,11 +17,12 @@ from .config import ProcessingConfig
 class FileOrganizer:
     """Handles file organization and output structure creation"""
     
-    def __init__(self, config: ProcessingConfig):
+    def __init__(self, config: ProcessingConfig, dropbox_client=None):
         self.config = config
+        self.dropbox_client = dropbox_client
         self.logger = logging.getLogger(__name__)
         
-        # Create output directory structure
+        # Create local temp directory for processing
         self.output_root = Path("processed")
         self.output_root.mkdir(exist_ok=True)
         
@@ -55,7 +56,16 @@ class FileOrganizer:
             # Save metadata
             self._save_metadata(processed_content, audio_path, transcript_data, output_folder)
             
+            # Upload to Dropbox if client is available
+            if self.dropbox_client:
+                self._upload_folder_to_dropbox(output_folder, folder_name)
+            
             self.logger.info(f"Successfully created output folder: {folder_name}")
+            
+            # Clean up local files after upload
+            if self.dropbox_client and output_folder.exists():
+                shutil.rmtree(output_folder)
+                self.logger.info(f"Cleaned up local files: {folder_name}")
             
         except Exception as e:
             self.logger.error(f"Failed to create output folder: {e}")
@@ -220,3 +230,22 @@ class FileOrganizer:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
         
         self.logger.info("Metadata saved")
+    
+    def _upload_folder_to_dropbox(self, local_folder: Path, folder_name: str):
+        """Upload all files in local folder to Dropbox processed folder"""
+        self.logger.info(f"Uploading folder to Dropbox: {folder_name}")
+        
+        # Upload all files in the folder
+        for file_path in local_folder.iterdir():
+            if file_path.is_file():
+                # Create Dropbox path
+                dropbox_path = f"{self.dropbox_client.config.root_folder}/processed/{folder_name}/{file_path.name}"
+                
+                try:
+                    self.dropbox_client.upload_to_processed(file_path, dropbox_path)
+                    self.logger.info(f"Uploaded: {file_path.name}")
+                except Exception as e:
+                    self.logger.error(f"Failed to upload {file_path.name}: {e}")
+                    raise e
+        
+        self.logger.info(f"Successfully uploaded all files for: {folder_name}")

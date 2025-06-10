@@ -165,7 +165,8 @@ class DropboxClient:
         folders = [
             f"{self.config.root_folder}/inbox",
             f"{self.config.root_folder}/processing", 
-            f"{self.config.root_folder}/failed"
+            f"{self.config.root_folder}/failed",
+            f"{self.config.root_folder}/processed"
         ]
         
         for folder_path in folders:
