@@ -1,0 +1,18 @@
+dropbox:
+  access_token: "YOUR_DROPBOX_ACCESS_TOKEN"
+  root_folder: "/voicememos"
+
+transcription:
+  service: "assemblyai"
+  api_key: "YOUR_ASSEMBLYAI_API_KEY"
+  
+llm:
+  service: "claude"  # or "openai", "google"
+  api_key: "YOUR_LLM_API_KEY"
+  model: "claude-3-haiku-20240307"
+
+processing:
+  compress_audio: true
+  compression_quality: "medium"
+  max_file_size_mb: 50
+  polling_interval: 60
