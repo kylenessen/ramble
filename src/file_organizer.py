@@ -28,10 +28,10 @@ class FileOrganizer:
         
         self.logger.info(f"File organizer initialized with output root: {self.output_root}")
     
-    def create_output_folder(self, processed_content: Dict, audio_path: Path, transcript_data: Dict):
+    def create_output_folder(self, processed_content: Dict, audio_path: Path, transcript_data: Dict, file_created_time=None):
         """Create organized output folder with all processed files"""
         # Determine session date
-        session_date = self._get_session_date(processed_content)
+        session_date = self._get_session_date(processed_content, file_created_time)
         session_title = processed_content['session_title']
         
         # Create folder name
@@ -74,17 +74,13 @@ class FileOrganizer:
                 shutil.rmtree(output_folder)
             raise e
     
-    def _get_session_date(self, processed_content: Dict) -> str:
-        """Get session date, using override if specified"""
-        if processed_content.get('override_date') and processed_content['override_date'] != "null":
-            try:
-                date_obj = datetime.strptime(processed_content['override_date'], '%Y-%m-%d')
-                return date_obj.strftime('%Y-%m-%d_%H-%M')
-            except ValueError:
-                self.logger.warning(f"Invalid override date format: {processed_content['override_date']}")
-        
-        # Use current timestamp
-        return datetime.now().strftime('%Y-%m-%d_%H-%M')
+    def _get_session_date(self, processed_content: Dict, file_created_time=None) -> str:
+        """Get session date from file creation time only"""
+        # Use file creation time if available, otherwise current time
+        if file_created_time:
+            return file_created_time.strftime('%Y-%m-%d_%H-%M')
+        else:
+            return datetime.now().strftime('%Y-%m-%d_%H-%M')
     
     def _clean_folder_name(self, folder_name: str) -> str:
         """Clean folder name for filesystem compatibility"""
@@ -228,7 +224,6 @@ class FileOrganizer:
             "processing_date": datetime.now().isoformat(),
             "original_filename": audio_path.name,
             "session_title": processed_content['session_title'],
-            "override_date": processed_content.get('override_date'),
             "duration_seconds": transcript_data.get('audio_duration', 0) / 1000 if transcript_data.get('audio_duration') else 0,
             "original_size_mb": round(original_size, 2),
             "compressed_size_mb": round(compressed_size, 2),

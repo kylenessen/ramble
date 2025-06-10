@@ -84,7 +84,8 @@ class VoiceMemoProcessor:
             self.organizer.create_output_folder(
                 processed_content,
                 local_path,
-                transcript
+                transcript,
+                file_info.get('created_time')
             )
             
             # Clean up

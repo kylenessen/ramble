@@ -6,16 +6,18 @@ Main entry point for the daemon process
 
 import time
 import logging
+import argparse
 from pathlib import Path
 
 from src.config import Config
 from src.processor import VoiceMemoProcessor
 
 
-def setup_logging():
+def setup_logging(debug=False):
     """Configure logging for the application"""
+    level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler('ramble.log'),
@@ -26,7 +28,11 @@ def setup_logging():
 
 def main():
     """Main daemon loop"""
-    setup_logging()
+    parser = argparse.ArgumentParser(description='Ramble Voice Memo Processing Service')
+    parser.add_argument('--debug', action='store_true', help='Enable debug logging')
+    args = parser.parse_args()
+    
+    setup_logging(debug=args.debug)
     logger = logging.getLogger(__name__)
     
     try:

@@ -60,26 +60,20 @@ class LLMProcessor:
     
     def _build_prompt(self, transcript_text: str, file_created_time: Optional[datetime] = None) -> str:
         """Build the prompt for LLM processing"""
-        file_date = file_created_time.strftime("%Y-%m-%d") if file_created_time else "Unknown"
-        
         return f"""Process this voice memo transcript into a single, organized document:
 
 ORIGINAL TRANSCRIPT:
 {transcript_text}
 
-FILE_CREATION_DATE: {file_date}
-
 Please:
 1. **DENSIFY**: Remove filler words, repetition, and tangents
-2. **DATE DETECTION**: If speaker mentions a specific date that differs from file date by >1 day, note it
-3. **STRUCTURE**: Organize content with clear headings and make it easily scannable and actionable
-4. **PRESERVE FLOW**: Keep the natural flow of topics but organize them clearly
-5. Create overall session title
+2. **STRUCTURE**: Organize content with clear headings and make it easily scannable and actionable
+3. **PRESERVE FLOW**: Keep the natural flow of topics but organize them clearly
+4. Create overall session title
 
 Format response as JSON:
 {{
   "session_title": "descriptive-session-title",
-  "override_date": "YYYY-MM-DD or null",
   "content": "# Session Title\n\nWell-structured markdown content with headings, organized thoughts, and actionable items"
 }}
 
