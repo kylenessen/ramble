@@ -49,7 +49,8 @@ class LLMProcessor:
                 raise ValueError(f"Unsupported service: {self.config.service}")
             
             processed_content = self._parse_response(response)
-            self.logger.info(f"LLM processing completed: {len(processed_content['topics'])} topics identified")
+            content_length = len(processed_content['content'])
+            self.logger.info(f"LLM processing completed: {content_length} characters of organized content")
             
             return processed_content
             
@@ -61,7 +62,7 @@ class LLMProcessor:
         """Build the prompt for LLM processing"""
         file_date = file_created_time.strftime("%Y-%m-%d") if file_created_time else "Unknown"
         
-        return f"""Process this voice memo transcript into separate, actionable topics:
+        return f"""Process this voice memo transcript into a single, organized document:
 
 ORIGINAL TRANSCRIPT:
 {transcript_text}
@@ -69,29 +70,17 @@ ORIGINAL TRANSCRIPT:
 FILE_CREATION_DATE: {file_date}
 
 Please:
-1. **IDENTIFY TOPICS**: Separate distinct themes/topics within the recording
-2. **DENSIFY**: Remove filler words, repetition, tangents for each topic
-3. **DATE DETECTION**: If speaker mentions a specific date that differs from file date by >1 day, note it
-4. **STRUCTURE**: Make each topic easily scannable and actionable
-5. Generate descriptive filenames for each topic (max 40 chars, use hyphens)
-6. Create overall session title
+1. **DENSIFY**: Remove filler words, repetition, and tangents
+2. **DATE DETECTION**: If speaker mentions a specific date that differs from file date by >1 day, note it
+3. **STRUCTURE**: Organize content with clear headings and make it easily scannable and actionable
+4. **PRESERVE FLOW**: Keep the natural flow of topics but organize them clearly
+5. Create overall session title
 
 Format response as JSON:
 {{
-  "session_title": "overall-session-title",
+  "session_title": "descriptive-session-title",
   "override_date": "YYYY-MM-DD or null",
-  "topics": [
-    {{
-      "filename": "topic-1-descriptive-name",
-      "title": "Topic 1 Title",
-      "content": "Dense, structured content for topic 1"
-    }},
-    {{
-      "filename": "topic-2-descriptive-name", 
-      "title": "Topic 2 Title",
-      "content": "Dense, structured content for topic 2"
-    }}
-  ]
+  "content": "# Session Title\n\nWell-structured markdown content with headings, organized thoughts, and actionable items"
 }}
 
 Ensure the JSON is valid and properly formatted."""
@@ -138,23 +127,13 @@ Ensure the JSON is valid and properly formatted."""
             parsed = json.loads(json_str)
             
             # Validate structure
-            required_fields = ['session_title', 'topics']
+            required_fields = ['session_title', 'content']
             for field in required_fields:
                 if field not in parsed:
                     raise ValueError(f"Missing required field: {field}")
             
-            if not isinstance(parsed['topics'], list) or len(parsed['topics']) == 0:
-                raise ValueError("Topics must be a non-empty list")
-            
-            for i, topic in enumerate(parsed['topics']):
-                required_topic_fields = ['filename', 'title', 'content']
-                for field in required_topic_fields:
-                    if field not in topic:
-                        raise ValueError(f"Topic {i} missing required field: {field}")
-            
-            # Clean up filenames
-            for topic in parsed['topics']:
-                topic['filename'] = self._clean_filename(topic['filename'])
+            if not isinstance(parsed['content'], str) or len(parsed['content'].strip()) == 0:
+                raise ValueError("Content must be a non-empty string")
             
             return parsed
             

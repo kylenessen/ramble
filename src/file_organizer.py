@@ -50,8 +50,8 @@ class FileOrganizer:
             # Save raw transcript
             self._save_raw_transcript(transcript_data, output_folder)
             
-            # Save processed topic files
-            self._save_topic_files(processed_content['topics'], output_folder)
+            # Save processed content file
+            self._save_content_file(processed_content, output_folder)
             
             # Save metadata
             self._save_metadata(processed_content, audio_path, transcript_data, output_folder)
@@ -173,20 +173,40 @@ class FileOrganizer:
         
         self.logger.info("Raw transcript saved")
     
-    def _save_topic_files(self, topics: list, output_folder: Path):
-        """Save individual topic files"""
-        for topic in topics:
-            filename = topic['filename']
-            if not filename.endswith('.md'):
-                filename += '.md'
-            
-            content = f"# {topic['title']}\n\n{topic['content']}\n"
-            
-            output_path = output_folder / filename
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            
-            self.logger.info(f"Topic file saved: {filename}")
+    def _save_content_file(self, processed_content: Dict, output_folder: Path):
+        """Save the processed content as a single markdown file"""
+        session_title = processed_content['session_title']
+        content = processed_content['content']
+        
+        # Create filename from session title
+        filename = self._clean_filename(f"{session_title}.md")
+        
+        output_path = output_folder / filename
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        self.logger.info(f"Content file saved: {filename}")
+    
+    def _clean_filename(self, filename: str) -> str:
+        """Clean filename for filesystem compatibility"""
+        # Remove invalid characters
+        invalid_chars = '<>:"/\\|?*'
+        for char in invalid_chars:
+            filename = filename.replace(char, '-')
+        
+        # Replace spaces with underscores
+        filename = filename.replace(' ', '_')
+        
+        # Limit length (keep .md extension)
+        if len(filename) > 50:
+            name_part = filename[:-3] if filename.endswith('.md') else filename
+            filename = name_part[:47] + '.md'
+        
+        # Ensure it ends with .md
+        if not filename.endswith('.md'):
+            filename += '.md'
+        
+        return filename
     
     def _save_metadata(self, processed_content: Dict, audio_path: Path, transcript_data: Dict, output_folder: Path):
         """Save processing metadata as JSON"""
@@ -214,15 +234,8 @@ class FileOrganizer:
             "compressed_size_mb": round(compressed_size, 2),
             "transcription_service": "assemblyai",
             "llm_service": "configured_service",  # This could be passed from config
-            "topics": [
-                {
-                    "filename": topic['filename'],
-                    "title": topic['title'],
-                    "word_count": len(topic['content'].split())
-                }
-                for topic in processed_content['topics']
-            ],
-            "total_word_count": sum(len(topic['content'].split()) for topic in processed_content['topics'])
+            "content_filename": self._clean_filename(f"{processed_content['session_title']}.md"),
+            "word_count": len(processed_content['content'].split())
         }
         
         output_path = output_folder / "metadata.json"
