@@ -25,6 +25,10 @@ class DropboxClient:
             # Test the connection
             self.client.users_get_current_account()
             self.logger.info("Connected to Dropbox successfully")
+            
+            # Create required folder structure
+            self._create_required_folders()
+            
         except AuthError as e:
             raise ValueError(f"Invalid Dropbox access token: {e}")
         except Exception as e:
@@ -35,14 +39,33 @@ class DropboxClient:
         inbox_path = f"{self.config.root_folder}/inbox"
         audio_extensions = {'.wav', '.mp3', '.m4a', '.aac', '.flac', '.opus', '.ogg'}
         
+        self.logger.debug(f"Checking inbox path: '{inbox_path}'")
+        
+        # Debug: Also check what's in the root folder
         try:
-            result = self.client.files_list_folder(inbox_path)
+            root_result = self.client.files_list_folder(self.config.root_folder)
+            self.logger.debug(f"Root folder contents: {[entry.name for entry in root_result.entries]}")
+        except Exception as e:
+            self.logger.debug(f"Couldn't list root folder: {e}")
+        
+        try:
+            # Try with recursive=True to see if there are any nested files
+            result = self.client.files_list_folder(inbox_path, recursive=True)
             files = []
             
+            self.logger.debug(f"Found {len(result.entries)} total entries in inbox")
+            
+            # Debug: Print all entries regardless of type
             for entry in result.entries:
+                self.logger.debug(f"Raw entry: {entry.name} | Type: {type(entry).__name__} | Path: {getattr(entry, 'path_display', 'N/A')}")
+            
+            for entry in result.entries:
+                self.logger.debug(f"Found entry: {entry.name} (type: {type(entry).__name__})")
                 if isinstance(entry, dropbox.files.FileMetadata):
                     file_ext = Path(entry.name).suffix.lower()
+                    self.logger.debug(f"File extension: {file_ext}, checking against: {audio_extensions}")
                     if file_ext in audio_extensions:
+                        self.logger.info(f"Adding audio file to processing queue: {entry.name}")
                         files.append({
                             'name': entry.name,
                             'path': entry.path_display,
@@ -50,12 +73,18 @@ class DropboxClient:
                             'created_time': entry.server_modified,
                             'id': entry.id
                         })
+                    else:
+                        self.logger.debug(f"Skipping non-audio file: {entry.name}")
             
+            self.logger.info(f"Found {len(files)} audio files in inbox")
             return files
             
         except ApiError as e:
-            if e.error.is_path_not_found():
+            # Handle path not found errors
+            if 'not_found' in str(e).lower() or 'path_not_found' in str(e).lower():
                 self.logger.warning(f"Inbox folder not found: {inbox_path}")
+                self.logger.info("Creating required folders...")
+                self._create_required_folders()
                 return []
             raise e
     
@@ -130,3 +159,22 @@ class DropboxClient:
             self.logger.info(f"Uploaded to processed: {remote_path}")
         except ApiError as e:
             raise Exception(f"Failed to upload processed file: {e}")
+    
+    def _create_required_folders(self):
+        """Create the required folder structure in Dropbox"""
+        folders = [
+            f"{self.config.root_folder}/inbox",
+            f"{self.config.root_folder}/processing", 
+            f"{self.config.root_folder}/failed"
+        ]
+        
+        for folder_path in folders:
+            try:
+                self.client.files_create_folder_v2(folder_path)
+                self.logger.info(f"Created folder: {folder_path}")
+            except ApiError as e:
+                if 'already_exists' in str(e).lower():
+                    self.logger.debug(f"Folder already exists: {folder_path}")
+                else:
+                    self.logger.warning(f"Failed to create folder {folder_path}: {e}")
+                    # Don't raise - some folders might already exist

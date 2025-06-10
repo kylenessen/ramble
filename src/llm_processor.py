@@ -22,6 +22,11 @@ class LLMProcessor:
         
         if config.service == "openai":
             self.client = openai.OpenAI(api_key=config.api_key)
+        elif config.service == "openrouter":
+            self.client = openai.OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=config.api_key
+            )
         elif config.service == "claude":
             self.client = Anthropic(api_key=config.api_key)
         else:
@@ -36,7 +41,7 @@ class LLMProcessor:
         prompt = self._build_prompt(transcript_data['text'], file_created_time)
         
         try:
-            if self.config.service == "openai":
+            if self.config.service in ["openai", "openrouter"]:
                 response = self._process_with_openai(prompt)
             elif self.config.service == "claude":
                 response = self._process_with_claude(prompt)

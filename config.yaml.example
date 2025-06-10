@@ -1,18 +1,22 @@
 dropbox:
-  access_token: "YOUR_DROPBOX_ACCESS_TOKEN"
-  root_folder: "/voicememos"
+  access_token: "${DROPBOX_ACCESS_TOKEN}"  # Or direct token
+  root_folder: "/ramble"
 
 transcription:
   service: "assemblyai"
-  api_key: "YOUR_ASSEMBLYAI_API_KEY"
+  api_key: "${ASSEMBLYAI_API_KEY}"
   
 llm:
-  service: "claude"  # or "openai", "google"
-  api_key: "YOUR_LLM_API_KEY"
-  model: "claude-3-haiku-20240307"
+  service: "openrouter"  # "openai", "claude", or "openrouter"
+  api_key: "${OPENROUTER_API_KEY}"
+  model: "anthropic/claude-3.5-haiku"  # Cost-effective option
+  # Alternative models:
+  # "openai/gpt-4o-mini"
+  # "anthropic/claude-3-sonnet" 
+  # "openai/gpt-4o"
 
 processing:
   compress_audio: true
-  compression_quality: "medium"
+  compression_quality: "medium"  # low, medium, high
   max_file_size_mb: 50
-  polling_interval: 60
+  polling_interval: 60  # seconds

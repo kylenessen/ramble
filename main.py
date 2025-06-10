@@ -15,7 +15,7 @@ from src.processor import VoiceMemoProcessor
 def setup_logging():
     """Configure logging for the application"""
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler('ramble.log'),
