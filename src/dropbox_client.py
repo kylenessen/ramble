@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import List, Dict
 import tempfile
+from datetime import timezone
 
 import dropbox
 from dropbox.exceptions import ApiError, AuthError
@@ -66,11 +67,16 @@ class DropboxClient:
                     self.logger.debug(f"File extension: {file_ext}, checking against: {audio_extensions}")
                     if file_ext in audio_extensions:
                         self.logger.info(f"Adding audio file to processing queue: {entry.name}")
+                        # Convert UTC timestamp to local time
+                        # Use client_modified (original file date) instead of server_modified (upload date)
+                        utc_time = entry.client_modified.replace(tzinfo=timezone.utc)
+                        local_time = utc_time.astimezone()
+                        
                         files.append({
                             'name': entry.name,
                             'path': entry.path_display,
                             'size': entry.size,
-                            'created_time': entry.server_modified,
+                            'created_time': local_time,
                             'id': entry.id
                         })
                     else:
