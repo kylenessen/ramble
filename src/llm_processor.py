@@ -87,8 +87,8 @@ Ensure the JSON is valid and properly formatted."""
                 {"role": "system", "content": "You are an expert at processing voice memos into structured, actionable content. Always respond with valid JSON."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.3,
-            max_tokens=4000
+            temperature=0.5,
+            max_tokens=8000
         )
         
         return response.choices[0].message.content
@@ -97,8 +97,8 @@ Ensure the JSON is valid and properly formatted."""
         """Process prompt with Anthropic Claude API"""
         response = self.client.messages.create(
             model=self.config.model,
-            max_tokens=4000,
-            temperature=0.3,
+            max_tokens=8000,
+            temperature=0.5,
             system="You are an expert at processing voice memos into structured, actionable content. Always respond with valid JSON.",
             messages=[
                 {"role": "user", "content": prompt}
