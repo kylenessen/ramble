@@ -1,5 +1,12 @@
 dropbox:
-  access_token: "${DROPBOX_ACCESS_TOKEN}"  # Or direct token
+  # OAuth 2.0 configuration (recommended for long-term use)
+  app_key: "${DROPBOX_APP_KEY}"
+  app_secret: "${DROPBOX_APP_SECRET}"
+  refresh_token: "${DROPBOX_REFRESH_TOKEN}"  # Generated via OAuth flow
+  
+  # Legacy token method (will expire)
+  # access_token: "${DROPBOX_ACCESS_TOKEN}"
+  
   root_folder: "/ramble"
 
 transcription:

@@ -22,16 +22,31 @@ class DropboxClient:
         self.logger = logging.getLogger(__name__)
         
         try:
-            self.client = dropbox.Dropbox(config.access_token)
+            # Initialize client based on available credentials
+            if config.app_key and config.app_secret and config.refresh_token:
+                # Use OAuth 2.0 with refresh token (recommended)
+                self.client = dropbox.Dropbox(
+                    app_key=config.app_key,
+                    app_secret=config.app_secret,
+                    oauth2_refresh_token=config.refresh_token
+                )
+                self.logger.info("Connected to Dropbox using OAuth 2.0 refresh token")
+            elif config.access_token:
+                # Use legacy access token
+                self.client = dropbox.Dropbox(config.access_token)
+                self.logger.warning("Using legacy access token - this will expire. Consider switching to OAuth 2.0")
+            else:
+                raise ValueError("No valid Dropbox credentials provided")
+            
             # Test the connection
             self.client.users_get_current_account()
-            self.logger.info("Connected to Dropbox successfully")
+            self.logger.info("Dropbox connection verified successfully")
             
             # Create required folder structure
             self._create_required_folders()
             
         except AuthError as e:
-            raise ValueError(f"Invalid Dropbox access token: {e}")
+            raise ValueError(f"Invalid Dropbox credentials: {e}")
         except Exception as e:
             raise ConnectionError(f"Failed to connect to Dropbox: {e}")
     

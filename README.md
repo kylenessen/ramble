@@ -13,21 +13,44 @@ An automated service that processes voice memos into organized, searchable, and 
 
 ## Quick Start
 
-1. **Setup**:
+### Local Development
+
+1. **Dependencies**: Install Python dependencies with `pip install -r requirements.txt`
+2. **Dropbox OAuth Setup**: 
+   - Create a Dropbox app at https://www.dropbox.com/developers/apps
+   - For local development: `python setup_oauth.py --app-key YOUR_APP_KEY --app-secret YOUR_APP_SECRET`
+3. **Configuration**: Copy `config.yaml.example` to `config.yaml` and add your credentials
+4. **Run**: Execute `python main.py` to start the service
+
+### Remote Server Deployment (SSH-only)
+
+For servers without browser access:
+
+1. **Get OAuth URL**: Run on server:
    ```bash
-   python setup.py
+   python setup_oauth_headless.py --app-key YOUR_APP_KEY --app-secret YOUR_APP_SECRET
    ```
 
-2. **Configure**:
-   Edit `config.yaml` with your API keys:
-   - Dropbox access token
-   - AssemblyAI API key
-   - LLM API key (Claude or OpenAI)
+2. **Authorize in Browser**: Visit the provided URL on your local machine, authorize the app
 
-3. **Run**:
+3. **Complete Setup**: Copy the authorization code and run on server:
    ```bash
-   python main.py
+   python setup_oauth_headless.py --app-key YOUR_APP_KEY --app-secret YOUR_APP_SECRET --auth-code YOUR_CODE
    ```
+
+4. **Configure**: Add the credentials to your `config.yaml` or set environment variables
+
+### Environment Variables
+
+For production deployments, use environment variables instead of storing credentials in files:
+
+```bash
+export DROPBOX_APP_KEY="your_app_key"
+export DROPBOX_APP_SECRET="your_app_secret"
+export DROPBOX_REFRESH_TOKEN="your_refresh_token"
+export ASSEMBLYAI_API_KEY="your_assemblyai_key"
+export OPENROUTER_API_KEY="your_openrouter_key"
+```
 
 ## Configuration
 
@@ -35,8 +58,11 @@ Copy `config.yaml.example` to `config.yaml` and configure:
 
 ```yaml
 dropbox:
-  access_token: "YOUR_DROPBOX_ACCESS_TOKEN"
-  root_folder: "/voicememos"
+  # OAuth 2.0 configuration (recommended for long-term use)
+  app_key: "${DROPBOX_APP_KEY}"
+  app_secret: "${DROPBOX_APP_SECRET}"
+  refresh_token: "${DROPBOX_REFRESH_TOKEN}"
+  root_folder: "/ramble"
 
 transcription:
   service: "assemblyai"

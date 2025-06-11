@@ -11,8 +11,25 @@ from typing import Optional
 
 @dataclass
 class DropboxConfig:
-    access_token: str
     root_folder: str
+    # OAuth 2.0 fields
+    app_key: Optional[str] = None
+    app_secret: Optional[str] = None
+    refresh_token: Optional[str] = None
+    # Legacy token field
+    access_token: Optional[str] = None
+    
+    def __post_init__(self):
+        """Validate that either OAuth or legacy token is provided"""
+        oauth_provided = all([self.app_key, self.app_secret, self.refresh_token])
+        legacy_provided = self.access_token is not None
+        
+        if not oauth_provided and not legacy_provided:
+            raise ValueError("Either OAuth credentials (app_key, app_secret, refresh_token) or access_token must be provided")
+        
+        if oauth_provided and legacy_provided:
+            # Prefer OAuth over legacy token
+            self.access_token = None
 
 
 @dataclass
