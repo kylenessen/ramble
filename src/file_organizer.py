@@ -45,7 +45,7 @@ class FileOrganizer:
         
         try:
             # Save compressed audio
-            self._save_compressed_audio(audio_path, output_folder)
+            self._save_compressed_audio(audio_path, output_folder, session_title)
             
             # Save raw transcript
             self._save_raw_transcript(transcript_data, output_folder)
@@ -98,16 +98,22 @@ class FileOrganizer:
         
         return folder_name
     
-    def _save_compressed_audio(self, audio_path: Path, output_folder: Path):
+    def _save_compressed_audio(self, audio_path: Path, output_folder: Path, session_title: str = None):
         """Save compressed version of the original audio"""
+        # Create filename from session title if available
+        if session_title:
+            audio_filename = self._clean_filename(f"{session_title}.m4a" if self.config.compress_audio else f"{session_title}{audio_path.suffix}")
+        else:
+            audio_filename = "original_compressed.m4a" if self.config.compress_audio else f"original{audio_path.suffix}"
+        
         if not self.config.compress_audio:
             # Just copy the original file
-            output_path = output_folder / f"original{audio_path.suffix}"
+            output_path = output_folder / audio_filename
             shutil.copy2(audio_path, output_path)
             return
         
         # Compress audio using ffmpeg
-        output_path = output_folder / "original_compressed.opus"
+        output_path = output_folder / audio_filename
         
         try:
             quality_settings = {
@@ -121,7 +127,7 @@ class FileOrganizer:
             (
                 ffmpeg
                 .input(str(audio_path))
-                .output(str(output_path), acodec='libopus', audio_bitrate=bitrate)
+                .output(str(output_path), acodec='aac', audio_bitrate=bitrate)
                 .overwrite_output()
                 .run(quiet=True)
             )
@@ -193,16 +199,15 @@ class FileOrganizer:
         # Replace spaces with underscores
         filename = filename.replace(' ', '_')
         
-        # Limit length (keep .md extension)
-        if len(filename) > 50:
-            name_part = filename[:-3] if filename.endswith('.md') else filename
-            filename = name_part[:47] + '.md'
+        # Get file extension
+        extension = Path(filename).suffix
+        name_part = filename[:-len(extension)] if extension else filename
         
-        # Ensure it ends with .md
-        if not filename.endswith('.md'):
-            filename += '.md'
+        # Limit length (preserve extension)
+        if len(name_part) > 50:
+            name_part = name_part[:47] + "..."
         
-        return filename
+        return name_part + extension
     
     def _save_metadata(self, processed_content: Dict, audio_path: Path, transcript_data: Dict, output_folder: Path):
         """Save processing metadata as JSON"""
