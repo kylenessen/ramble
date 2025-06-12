@@ -17,9 +17,10 @@ from .config import ProcessingConfig
 class FileOrganizer:
     """Handles file organization and output structure creation"""
     
-    def __init__(self, config: ProcessingConfig, dropbox_client=None):
+    def __init__(self, config: ProcessingConfig, dropbox_client=None, llm_service=None):
         self.config = config
         self.dropbox_client = dropbox_client
+        self.llm_service = llm_service or 'unknown'
         self.logger = logging.getLogger(__name__)
         
         # Create local temp directory for processing
@@ -50,8 +51,8 @@ class FileOrganizer:
             # Save raw transcript
             self._save_raw_transcript(transcript_data, output_folder)
             
-            # Save processed content file
-            self._save_content_file(processed_content, output_folder)
+            # Save processed content file with metadata
+            self._save_content_file(processed_content, output_folder, audio_path, transcript_data, file_created_time)
             
             # Save metadata
             self._save_metadata(processed_content, audio_path, transcript_data, output_folder)
@@ -175,19 +176,62 @@ class FileOrganizer:
         
         self.logger.info("Raw transcript saved")
     
-    def _save_content_file(self, processed_content: Dict, output_folder: Path):
-        """Save the processed content as a single markdown file"""
+    def _save_content_file(self, processed_content: Dict, output_folder: Path, audio_path: Path, transcript_data: Dict, file_created_time=None):
+        """Save the processed content as a single markdown file with YAML frontmatter"""
         session_title = processed_content['session_title']
         content = processed_content['content']
+        keywords = processed_content.get('keywords', [])
+        
+        # Create YAML frontmatter
+        frontmatter = self._create_yaml_frontmatter(
+            processed_content, audio_path, transcript_data, file_created_time
+        )
+        
+        # Combine frontmatter and content
+        full_content = f"{frontmatter}\n{content}"
         
         # Create filename from session title
         filename = self._clean_filename(f"{session_title}.md")
         
         output_path = output_folder / filename
         with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(content)
+            f.write(full_content)
         
-        self.logger.info(f"Content file saved: {filename}")
+        self.logger.info(f"Content file saved with metadata: {filename}")
+    
+    def _create_yaml_frontmatter(self, processed_content: Dict, audio_path: Path, transcript_data: Dict, file_created_time=None) -> str:
+        """Create YAML frontmatter for the markdown file"""
+        import yaml
+        
+        # Use file creation time if available, otherwise current time
+        if file_created_time:
+            date_str = file_created_time.isoformat()
+        else:
+            date_str = datetime.now().isoformat()
+        
+        processed_date_str = datetime.now().isoformat()
+        
+        # Calculate duration in seconds
+        duration_seconds = 0
+        if transcript_data.get('audio_duration'):
+            duration_seconds = round(transcript_data['audio_duration'] / 1000, 1)
+        
+        # Get LLM service from config
+        llm_service = self.llm_service
+        
+        metadata = {
+            'date': date_str,
+            'processed_date': processed_date_str,
+            'original_filename': audio_path.name,
+            'duration_seconds': duration_seconds,
+            'llm_service': llm_service,
+            'keywords': processed_content.get('keywords', []),
+            'word_count': len(processed_content['content'].split())
+        }
+        
+        # Create YAML frontmatter
+        yaml_content = yaml.dump(metadata, default_flow_style=False, allow_unicode=True)
+        return f"---\n{yaml_content}---"
     
     def _clean_filename(self, filename: str) -> str:
         """Clean filename for filesystem compatibility"""

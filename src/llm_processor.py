@@ -70,10 +70,12 @@ Please:
 2. **STRUCTURE**: Organize content with clear headings and make it easily scannable and actionable
 3. **PRESERVE FLOW**: Keep the natural flow of topics but organize them clearly
 4. Create overall session title
+5. **EXTRACT KEYWORDS**: Identify 3-8 key topics, themes, or subjects discussed
 
 Format response as JSON:
 {{
   "session_title": "descriptive-session-title",
+  "keywords": ["keyword1", "keyword2", "keyword3"],
   "content": "# Session Title\n\nWell-structured markdown content with headings, organized thoughts, and actionable items"
 }}
 
@@ -121,13 +123,16 @@ Ensure the JSON is valid and properly formatted."""
             parsed = json.loads(json_str)
             
             # Validate structure
-            required_fields = ['session_title', 'content']
+            required_fields = ['session_title', 'keywords', 'content']
             for field in required_fields:
                 if field not in parsed:
                     raise ValueError(f"Missing required field: {field}")
             
             if not isinstance(parsed['content'], str) or len(parsed['content'].strip()) == 0:
                 raise ValueError("Content must be a non-empty string")
+            
+            if not isinstance(parsed['keywords'], list):
+                raise ValueError("Keywords must be a list")
             
             return parsed
             
