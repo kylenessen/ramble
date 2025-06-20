@@ -12,6 +12,7 @@ import dropbox
 from dropbox.exceptions import ApiError, AuthError
 
 from .config import DropboxConfig
+from .utils import parse_dji_filename_date, is_dji_file
 
 
 class DropboxClient:
@@ -82,16 +83,33 @@ class DropboxClient:
                     self.logger.debug(f"File extension: {file_ext}, checking against: {audio_extensions}")
                     if file_ext in audio_extensions:
                         self.logger.info(f"Adding audio file to processing queue: {entry.name}")
-                        # Convert UTC timestamp to local time
-                        # Use client_modified (original file date) instead of server_modified (upload date)
-                        utc_time = entry.client_modified.replace(tzinfo=timezone.utc)
-                        local_time = utc_time.astimezone()
+                        
+                        # Determine creation time: use DJI filename date for DJI files, fallback to client_modified
+                        created_time = None
+                        
+                        if is_dji_file(entry.name):
+                            # Try to extract date from DJI filename
+                            dji_datetime = parse_dji_filename_date(entry.name)
+                            if dji_datetime:
+                                created_time = dji_datetime
+                                self.logger.info(f"Using DJI filename date for {entry.name}: {created_time}")
+                            else:
+                                self.logger.warning(f"Failed to parse DJI filename date for {entry.name}, falling back to client_modified")
+                        
+                        # Use client_modified as fallback (for non-DJI files or failed DJI parsing)
+                        if created_time is None:
+                            # Convert UTC timestamp to local time
+                            # Use client_modified (original file date) instead of server_modified (upload date)
+                            utc_time = entry.client_modified.replace(tzinfo=timezone.utc)
+                            created_time = utc_time.astimezone()
+                            if not is_dji_file(entry.name):
+                                self.logger.debug(f"Using client_modified date for {entry.name}: {created_time}")
                         
                         files.append({
                             'name': entry.name,
                             'path': entry.path_display,
                             'size': entry.size,
-                            'created_time': local_time,
+                            'created_time': created_time,
                             'id': entry.id
                         })
                     else:
