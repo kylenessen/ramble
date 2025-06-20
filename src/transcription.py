@@ -30,7 +30,7 @@ class TranscriptionService:
             format_text=True,
             punctuate=True,
             disfluencies=True,
-            speech_model=aai.SpeechModel.slam_1,
+            speech_model=aai.SpeechModel.best,
             language_code="en_us"
         )
         
