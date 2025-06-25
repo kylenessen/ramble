@@ -1,0 +1,58 @@
+# Git and version control
+.git
+.gitignore
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs and runtime data
+*.log
+logs/
+ramble.log
+
+# Processed data (will be mounted as volume)
+processed/
+
+# Configuration files (will be mounted or set via env vars)
+config.yaml
+
+# Documentation and development files
+README.md
+TODO.MD
+ramble_spec.md
+CLAUDE.md
+
+# Setup and development scripts
+setup.py
+setup_oauth.py
+setup_oauth_headless.py
+
+# Docker files (avoid recursive copying)
+Dockerfile
+docker-compose.yml
+.dockerignore
