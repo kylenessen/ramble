@@ -3,27 +3,46 @@ set -e
 
 # Function to create config if it doesn't exist
 create_config_if_needed() {
-    if [ ! -f /app/config.yaml ]; then
+    # Check if config.yaml is mounted as read-only volume
+    if [ -f /app/config.yaml ] && [ ! -w /app/config.yaml ]; then
+        echo "Using mounted config.yaml (read-only)"
+        return 0
+    fi
+    
+    # Check if config.yaml exists as a directory (mount issue)
+    if [ -d /app/config.yaml ]; then
+        echo "WARNING: config.yaml is mounted as directory, creating config from environment variables in /tmp"
+        CONFIG_PATH="/tmp/config.yaml"
+    else
+        CONFIG_PATH="/app/config.yaml"
+    fi
+    
+    if [ ! -f "$CONFIG_PATH" ]; then
         echo "Creating config.yaml from environment variables..."
-        cp /app/config.yaml.example /app/config.yaml
+        cp /app/config.yaml.example "$CONFIG_PATH"
         
         # Replace placeholder values with environment variables
-        sed -i "s/\${DROPBOX_APP_KEY}/$DROPBOX_APP_KEY/g" /app/config.yaml
-        sed -i "s/\${DROPBOX_APP_SECRET}/$DROPBOX_APP_SECRET/g" /app/config.yaml
-        sed -i "s/\${DROPBOX_REFRESH_TOKEN}/$DROPBOX_REFRESH_TOKEN/g" /app/config.yaml
-        sed -i "s/\${ASSEMBLYAI_API_KEY}/$ASSEMBLYAI_API_KEY/g" /app/config.yaml
-        sed -i "s/\${OPENROUTER_API_KEY}/$OPENROUTER_API_KEY/g" /app/config.yaml
+        sed -i "s/\${DROPBOX_APP_KEY}/$DROPBOX_APP_KEY/g" "$CONFIG_PATH"
+        sed -i "s/\${DROPBOX_APP_SECRET}/$DROPBOX_APP_SECRET/g" "$CONFIG_PATH"
+        sed -i "s/\${DROPBOX_REFRESH_TOKEN}/$DROPBOX_REFRESH_TOKEN/g" "$CONFIG_PATH"
+        sed -i "s/\${ASSEMBLYAI_API_KEY}/$ASSEMBLYAI_API_KEY/g" "$CONFIG_PATH"
+        sed -i "s/\${OPENROUTER_API_KEY}/$OPENROUTER_API_KEY/g" "$CONFIG_PATH"
         
         # Optional environment variable overrides
         if [ ! -z "$RAMBLE_POLLING_INTERVAL" ]; then
-            sed -i "s/polling_interval: 60/polling_interval: $RAMBLE_POLLING_INTERVAL/g" /app/config.yaml
+            sed -i "s/polling_interval: 60/polling_interval: $RAMBLE_POLLING_INTERVAL/g" "$CONFIG_PATH"
         fi
         
         if [ ! -z "$RAMBLE_MAX_FILE_SIZE_MB" ]; then
-            sed -i "s/max_file_size_mb: 50/max_file_size_mb: $RAMBLE_MAX_FILE_SIZE_MB/g" /app/config.yaml
+            sed -i "s/max_file_size_mb: 50/max_file_size_mb: $RAMBLE_MAX_FILE_SIZE_MB/g" "$CONFIG_PATH"
         fi
         
-        echo "Config created successfully"
+        # If we had to create config in /tmp, export the path
+        if [ "$CONFIG_PATH" = "/tmp/config.yaml" ]; then
+            export RAMBLE_CONFIG_PATH="$CONFIG_PATH"
+        fi
+        
+        echo "Config created successfully at $CONFIG_PATH"
     else
         echo "Using existing config.yaml"
     fi

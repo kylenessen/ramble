@@ -26,8 +26,8 @@ services:
       - ./processed:/app/processed
       # Persistent storage for logs
       - ./logs:/app/logs
-      # Configuration file (optional - can use env vars only)
-      - ./config.yaml:/app/config.yaml:ro
+      # Configuration file (optional - remove this line if using env vars only)
+      # - ./config.yaml:/app/config.yaml:ro
     healthcheck:
       test: ["CMD", "pgrep", "-f", "python.*main.py"]
       interval: 60s
