@@ -86,7 +86,7 @@ class FileOrganizer:
     def _clean_folder_name(self, folder_name: str) -> str:
         """Clean folder name for filesystem compatibility"""
         # Replace invalid characters
-        invalid_chars = '<>:"/\\|?*'
+        invalid_chars = '<>:"/\\|?*&'
         for char in invalid_chars:
             folder_name = folder_name.replace(char, '-')
         
@@ -236,7 +236,7 @@ class FileOrganizer:
     def _clean_filename(self, filename: str) -> str:
         """Clean filename for filesystem compatibility"""
         # Remove invalid characters
-        invalid_chars = '<>:"/\\|?*'
+        invalid_chars = '<>:"/\\|?*&'
         for char in invalid_chars:
             filename = filename.replace(char, '-')
         
