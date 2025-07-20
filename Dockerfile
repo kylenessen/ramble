@@ -11,6 +11,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENV RAMBLE_CONFIG /config/config.yaml
-
 CMD ["python", "main.py"]
