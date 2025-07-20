@@ -2,7 +2,6 @@ version: '3.8'
 services:
   ramble:
     build: .
-    image: ramble
     container_name: ramble
     restart: unless-stopped
     volumes:
