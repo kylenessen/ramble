@@ -1,5 +1,8 @@
-# Configuration files with secrets
+# Config
 config.yaml
+config.yaml.example
+.env
+
 
 # Python
 __pycache__/
@@ -59,3 +62,4 @@ Thumbs.db
 *.flac
 *.opus
 *.ogg
+config.env
