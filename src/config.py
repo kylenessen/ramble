@@ -59,28 +59,73 @@ class Config:
     transcription: TranscriptionConfig
     llm: LLMConfig
     processing: ProcessingConfig
-    
+
     @classmethod
     def load(cls, config_path: Optional[str] = None) -> 'Config':
-        """Load configuration from YAML file"""
+        """Load configuration from YAML file or environment variables."""
+        if os.getenv('RAMBLE_LOAD_FROM_ENV', 'false').lower() in ('true', '1', 'yes'):
+            return cls.load_from_env()
+
         if config_path is None:
             config_path = os.getenv('RAMBLE_CONFIG', 'config.yaml')
-        
+
         config_file = Path(config_path)
         if not config_file.exists():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
-        
+
         with open(config_file, 'r') as f:
             data = yaml.safe_load(f)
-        
+
         # Resolve environment variables
         data = cls._resolve_env_vars(data)
-        
+
         return cls(
             dropbox=DropboxConfig(**data['dropbox']),
             transcription=TranscriptionConfig(**data['transcription']),
             llm=LLMConfig(**data['llm']),
             processing=ProcessingConfig(**data['processing'])
+        )
+
+    @classmethod
+    def load_from_env(cls) -> 'Config':
+        """Load configuration directly from environment variables."""
+        def get_env(var_name: str, required: bool = True, default: Optional[str] = None) -> Optional[str]:
+            value = os.getenv(var_name)
+            if required and value is None:
+                raise ValueError(f"Required environment variable {var_name} is not set.")
+            return value if value is not None else default
+
+        dropbox_cfg = DropboxConfig(
+            root_folder=get_env('DROPBOX_ROOT_FOLDER'),
+            app_key=get_env('DROPBOX_APP_KEY', required=False),
+            app_secret=get_env('DROPBOX_APP_SECRET', required=False),
+            refresh_token=get_env('DROPBOX_REFRESH_TOKEN', required=False),
+            access_token=get_env('DROPBOX_ACCESS_TOKEN', required=False)
+        )
+
+        transcription_cfg = TranscriptionConfig(
+            service=get_env('TRANSCRIPTION_SERVICE'),
+            api_key=get_env('TRANSCRIPTION_API_KEY')
+        )
+
+        llm_cfg = LLMConfig(
+            service=get_env('LLM_SERVICE'),
+            api_key=get_env('LLM_API_KEY'),
+            model=get_env('LLM_MODEL')
+        )
+
+        processing_cfg = ProcessingConfig(
+            compress_audio=get_env('PROCESSING_COMPRESS_AUDIO', default='true').lower() in ('true', '1', 'yes'),
+            compression_quality=get_env('PROCESSING_COMPRESSION_QUALITY', default='medium'),
+            max_file_size_mb=int(get_env('PROCESSING_MAX_FILE_SIZE_MB', default='100')),
+            polling_interval=int(get_env('PROCESSING_POLLING_INTERVAL', default='60'))
+        )
+
+        return cls(
+            dropbox=dropbox_cfg,
+            transcription=transcription_cfg,
+            llm=llm_cfg,
+            processing=processing_cfg
         )
     
     @staticmethod
