@@ -61,40 +61,17 @@ class Config:
     processing: ProcessingConfig
 
     @classmethod
-    def load(cls, config_path: Optional[str] = None) -> 'Config':
+    def load(cls) -> 'Config':
         """
-        Load configuration.
-        Tries to load from a YAML file first. If the file is not found,
-        it falls back to loading from environment variables.
+        Load configuration directly from environment variables.
         """
-        if config_path is None:
-            config_path = os.getenv('RAMBLE_CONFIG', 'config.yaml')
-        
-        config_file = Path(config_path)
-        
-        if config_file.exists():
-            # Load from YAML file if it exists
-            with open(config_file, 'r') as f:
-                data = yaml.safe_load(f)
-            
-            # Resolve environment variables within the YAML file
-            data = cls._resolve_env_vars(data)
-            
-            return cls(
-                dropbox=DropboxConfig(**data['dropbox']),
-                transcription=TranscriptionConfig(**data['transcription']),
-                llm=LLMConfig(**data['llm']),
-                processing=ProcessingConfig(**data['processing'])
-            )
-        else:
-            # Fallback to loading from environment variables
-            try:
-                return cls.load_from_env()
-            except ValueError as e:
-                raise ValueError(
-                    f"Configuration file '{config_path}' not found, and failed to load from environment variables. "
-                    f"Please provide a config file or set the required environment variables. Error: {e}"
-                ) from e
+        try:
+            return cls.load_from_env()
+        except ValueError as e:
+            raise ValueError(
+                f"Failed to load configuration from environment variables. "
+                f"Please ensure all required environment variables are set. Error: {e}"
+            ) from e
 
     @classmethod
     def load_from_env(cls) -> 'Config':
