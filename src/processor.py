@@ -63,6 +63,15 @@ class VoiceMemoProcessor:
             # Download file for processing
             local_path = self.dropbox.download_file(processing_path, filename)
             
+            # Check if file is too small (likely accidental recording)
+            file_size_kb = local_path.stat().st_size / 1024
+            if file_size_kb < self.config.processing.min_file_size_kb:
+                self.logger.info(f"Skipping {filename}: file too small ({file_size_kb:.1f}KB < {self.config.processing.min_file_size_kb}KB)")
+                # Clean up files
+                self.dropbox.delete_processing_file(processing_path)
+                local_path.unlink()
+                return
+            
             # Transcribe audio with circuit breaker and retry
             transcript = self.transcription_breaker.call(
                 self.error_handler.retry_with_backoff,
