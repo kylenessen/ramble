@@ -50,6 +50,7 @@ class ProcessingConfig:
     compress_audio: bool
     compression_quality: str
     max_file_size_mb: int
+    min_file_size_kb: int
     polling_interval: int
 
 
@@ -105,6 +106,7 @@ class Config:
             compress_audio=get_env('PROCESSING_COMPRESS_AUDIO', default='true').lower() in ('true', '1', 'yes'),
             compression_quality=get_env('PROCESSING_COMPRESSION_QUALITY', default='medium'),
             max_file_size_mb=int(get_env('PROCESSING_MAX_FILE_SIZE_MB', default='100')),
+            min_file_size_kb=int(get_env('PROCESSING_MIN_FILE_SIZE_KB', default='500')),
             polling_interval=int(get_env('PROCESSING_POLLING_INTERVAL', default='60'))
         )
 
