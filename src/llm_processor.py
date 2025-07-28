@@ -66,11 +66,11 @@ ORIGINAL TRANSCRIPT:
 {transcript_text}
 
 Please:
-1. **DENSIFY**: Remove filler words, repetition, and tangents
-2. **STRUCTURE**: Organize content with clear headings and make it easily scannable and actionable
-3. **PRESERVE FLOW**: Keep the natural flow of topics but organize them clearly
-4. Create overall session title
-5. **EXTRACT KEYWORDS**: Identify 3-8 key topics, themes, or subjects discussed
+1. **CLEAN**: Remove filler words (um, uh, like, you know) and fix transcription artifacts (run-on sentences, missing punctuation, capitalization) while preserving the speaker's natural voice and intent
+2. **STRUCTURE**: Organize content with clear headings where applicable. If there is a single idea, use only one heading
+3. **PRESERVE FLOW**: Maintain the natural progression of topics and the speaker's original meaning
+4. **COMPLETE**: Naturally finish any incomplete thoughts without adding new ideas
+5. Create concise session title reflecting the main topic 
 
 Format response as JSON:
 {{
