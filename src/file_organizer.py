@@ -16,6 +16,8 @@ from .config import ProcessingConfig
 
 class FileOrganizer:
     """Handles file organization and output structure creation"""
+
+    MAX_SESSION_TITLE_CHARS = 40
     
     def __init__(self, config: ProcessingConfig, dropbox_client=None, llm_service=None):
         self.config = config
@@ -33,29 +35,44 @@ class FileOrganizer:
         """Create organized output folder with all processed files"""
         # Determine session date
         session_date = self._get_session_date(processed_content, file_created_time)
-        session_title = processed_content['session_title']
+        session_title = self._truncate_title(
+            processed_content.get('session_title', 'Untitled'),
+            max_chars=self.MAX_SESSION_TITLE_CHARS,
+        )
         
         # Create folder name
         folder_name = f"{session_date}_{session_title}"
         folder_name = self._clean_folder_name(folder_name)
+        folder_name = self._ensure_unique_folder_name(folder_name)
         
         output_folder = self.output_root / folder_name
-        output_folder.mkdir(exist_ok=True)
+        output_folder.mkdir(exist_ok=False)
         
         self.logger.info(f"Creating output folder: {output_folder}")
         
         try:
             # Save compressed audio
-            self._save_compressed_audio(audio_path, output_folder, session_title)
-            
-            # Save raw transcript
-            self._save_raw_transcript(transcript_data, output_folder)
-            
-            # Save processed content file with metadata
-            self._save_content_file(processed_content, output_folder, audio_path, transcript_data, file_created_time)
+            saved_audio_path = self._save_compressed_audio(audio_path, output_folder, session_title)
+
+            # Save combined content (summary + transcript)
+            content_filename = self._save_combined_content_file(
+                processed_content,
+                transcript_data,
+                output_folder,
+                folder_name,
+                session_title,
+            )
             
             # Save metadata
-            self._save_metadata(processed_content, audio_path, transcript_data, output_folder)
+            self._save_metadata(
+                processed_content,
+                audio_path,
+                transcript_data,
+                output_folder,
+                content_filename=content_filename,
+                saved_audio_path=saved_audio_path,
+                session_title=session_title,
+            )
             
             # Upload to Dropbox if client is available
             if self.dropbox_client:
@@ -79,10 +96,10 @@ class FileOrganizer:
         """Get session date from file creation time only"""
         # Use file creation time if available, otherwise current time
         if file_created_time:
-            return file_created_time.strftime('%Y-%m-%d_%H-%M')
+            return file_created_time.strftime('%Y-%m-%d')
         else:
-            return datetime.now().strftime('%Y-%m-%d_%H-%M')
-    
+            return datetime.now().strftime('%Y-%m-%d')
+
     def _clean_folder_name(self, folder_name: str) -> str:
         """Clean folder name for filesystem compatibility"""
         # Replace invalid characters
@@ -98,6 +115,30 @@ class FileOrganizer:
             folder_name = folder_name[:97] + "..."
         
         return folder_name
+
+    def _ensure_unique_folder_name(self, folder_name: str) -> str:
+        """Ensure output folder name is unique under output root."""
+        if not (self.output_root / folder_name).exists():
+            return folder_name
+
+        counter = 2
+        while True:
+            suffix = f"_{counter}"
+            max_base_len = 100 - len(suffix)
+            base = folder_name[:max_base_len] if len(folder_name) > max_base_len else folder_name
+            candidate = f"{base}{suffix}"
+            if not (self.output_root / candidate).exists():
+                return candidate
+            counter += 1
+
+    def _truncate_title(self, title: str, max_chars: int) -> str:
+        """Truncate a human-readable title to a short length."""
+        title = " ".join((title or "").strip().split())
+        if len(title) <= max_chars:
+            return title
+        if max_chars <= 3:
+            return title[:max_chars]
+        return title[: max_chars - 3].rstrip() + "..."
     
     def _save_compressed_audio(self, audio_path: Path, output_folder: Path, session_title: str = None):
         """Save compressed version of the original audio"""
@@ -111,7 +152,7 @@ class FileOrganizer:
             # Just copy the original file
             output_path = output_folder / audio_filename
             shutil.copy2(audio_path, output_path)
-            return
+            return output_path
         
         # Compress audio using ffmpeg
         output_path = output_folder / audio_filename
@@ -134,104 +175,64 @@ class FileOrganizer:
             )
             
             self.logger.info(f"Compressed audio saved: {output_path.name}")
+            return output_path
             
         except Exception as e:
             self.logger.warning(f"Audio compression failed, copying original: {e}")
             # Fall back to copying original
             output_path = output_folder / f"original{audio_path.suffix}"
             shutil.copy2(audio_path, output_path)
+            return output_path
     
-    def _save_raw_transcript(self, transcript_data: Dict, output_folder: Path):
-        """Save raw transcript as markdown"""
-        from .transcription import TranscriptionService
-        
-        # Create a temporary service instance to format the transcript
-        # This is a bit of a hack, but avoids duplicating the formatting logic
-        transcript_content = f"""# Raw Transcript
+    def _save_combined_content_file(
+        self,
+        processed_content: Dict,
+        transcript_data: Dict,
+        output_folder: Path,
+        folder_name: str,
+        session_title: str,
+    ) -> str:
+        """Save the summary and transcript into a single markdown file."""
+        summary = (processed_content.get("content") or "").strip()
+        transcript_text = (transcript_data.get("text") or "").strip()
 
-**Duration:** {transcript_data.get('audio_duration', 'Unknown')} ms
-**Language:** {transcript_data.get('language_code', 'Unknown')}
-**Confidence:** {transcript_data.get('confidence', 'Unknown'):.2f}
+        summary = self._strip_leading_h1(summary)
 
-## Transcript Text
-
-{transcript_data['text']}
-"""
-        
-        # Add word-level timestamps if available
-        if transcript_data.get('words'):
-            transcript_content += "\n\n## Word-Level Timestamps\n\n"
-            transcript_content += "| Word | Start (ms) | End (ms) | Confidence |\n"
-            transcript_content += "|------|------------|----------|------------|\n"
-            
-            for word in transcript_data['words'][:50]:  # Limit to first 50 words
-                transcript_content += f"| {word['text']} | {word['start']} | {word['end']} | {word['confidence']:.2f} |\n"
-            
-            if len(transcript_data['words']) > 50:
-                transcript_content += "| ... | ... | ... | ... |\n"
-        
-        output_path = output_folder / "transcript_raw.md"
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(transcript_content)
-        
-        self.logger.info("Raw transcript saved")
-    
-    def _save_content_file(self, processed_content: Dict, output_folder: Path, audio_path: Path, transcript_data: Dict, file_created_time=None):
-        """Save the processed content as a single markdown file with YAML frontmatter"""
-        session_title = processed_content['session_title']
-        content = processed_content['content']
-        keywords = processed_content.get('keywords', [])
-        
-        # Create YAML frontmatter
-        frontmatter = self._create_yaml_frontmatter(
-            processed_content, audio_path, transcript_data, file_created_time
+        combined = "\n".join(
+            [
+                f"# {session_title}".rstrip(),
+                "",
+                summary,
+                "",
+                "## Transcript",
+                "",
+                transcript_text,
+                "",
+            ]
         )
-        
-        # Combine frontmatter and content
-        full_content = f"{frontmatter}\n{content}"
-        
-        # Create filename from session title
-        filename = self._clean_filename(f"{session_title}.md")
-        
+
+        filename = self._clean_filename(f"{folder_name}.md")
         output_path = output_folder / filename
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(full_content)
-        
-        self.logger.info(f"Content file saved with metadata: {filename}")
-    
-    def _create_yaml_frontmatter(self, processed_content: Dict, audio_path: Path, transcript_data: Dict, file_created_time=None) -> str:
-        """Create YAML frontmatter for the markdown file"""
-        import yaml
-        
-        # Use file creation time if available, otherwise current time
-        if file_created_time:
-            date_str = file_created_time.isoformat()
-        else:
-            date_str = datetime.now().isoformat()
-        
-        processed_date_str = datetime.now().isoformat()
-        
-        # Calculate duration in seconds
-        duration_seconds = 0
-        if transcript_data.get('audio_duration'):
-            duration_seconds = round(transcript_data['audio_duration'] / 1000, 1)
-        
-        # Get LLM service from config
-        llm_service = self.llm_service
-        
-        metadata = {
-            'date': date_str,
-            'processed_date': processed_date_str,
-            'original_filename': audio_path.name,
-            'duration_seconds': duration_seconds,
-            'llm_service': llm_service,
-            'keywords': processed_content.get('keywords', []),
-            'word_count': len(processed_content['content'].split())
-        }
-        
-        # Create YAML frontmatter
-        yaml_content = yaml.dump(metadata, default_flow_style=False, allow_unicode=True)
-        return f"---\n{yaml_content}---"
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(combined)
+
+        self.logger.info(f"Combined content file saved: {filename}")
+        return filename
+
+    def _strip_leading_h1(self, markdown: str) -> str:
+        """Remove a leading single H1 line from markdown (common in LLM output)."""
+        if not markdown:
+            return markdown
+
+        lines = markdown.splitlines()
+        idx = 0
+        while idx < len(lines) and not lines[idx].strip():
+            idx += 1
+        if idx < len(lines) and lines[idx].startswith("# "):
+            idx += 1
+            if idx < len(lines) and not lines[idx].strip():
+                idx += 1
+        return "\n".join(lines[idx:]).strip()
     
     def _clean_filename(self, filename: str) -> str:
         """Clean filename for filesystem compatibility"""
@@ -248,38 +249,46 @@ class FileOrganizer:
         name_part = filename[:-len(extension)] if extension else filename
         
         # Limit length (preserve extension)
-        if len(name_part) > 50:
-            name_part = name_part[:47] + "..."
+        if len(name_part) > 80:
+            name_part = name_part[:77] + "..."
         
         return name_part + extension
     
-    def _save_metadata(self, processed_content: Dict, audio_path: Path, transcript_data: Dict, output_folder: Path):
+    def _save_metadata(
+        self,
+        processed_content: Dict,
+        audio_path: Path,
+        transcript_data: Dict,
+        output_folder: Path,
+        *,
+        content_filename: str,
+        saved_audio_path: Path,
+        session_title: str,
+    ):
         """Save processing metadata as JSON"""
         try:
             original_size = audio_path.stat().st_size / (1024 * 1024)  # MB
         except:
             original_size = 0
         
-        # Check for compressed file size
-        compressed_files = list(output_folder.glob("original_compressed.*"))
         compressed_size = 0
-        if compressed_files:
-            try:
-                compressed_size = compressed_files[0].stat().st_size / (1024 * 1024)  # MB
-            except:
-                compressed_size = 0
+        try:
+            if saved_audio_path and saved_audio_path.exists():
+                compressed_size = saved_audio_path.stat().st_size / (1024 * 1024)  # MB
+        except:
+            compressed_size = 0
         
         metadata = {
             "processing_date": datetime.now().isoformat(),
             "original_filename": audio_path.name,
-            "session_title": processed_content['session_title'],
+            "session_title": session_title,
             "duration_seconds": transcript_data.get('audio_duration', 0) / 1000 if transcript_data.get('audio_duration') else 0,
             "original_size_mb": round(original_size, 2),
             "compressed_size_mb": round(compressed_size, 2),
             "transcription_service": "assemblyai",
-            "llm_service": "configured_service",  # This could be passed from config
-            "content_filename": self._clean_filename(f"{processed_content['session_title']}.md"),
-            "word_count": len(processed_content['content'].split())
+            "llm_service": self.llm_service,
+            "content_filename": content_filename,
+            "word_count": len((processed_content.get("content") or "").split()),
         }
         
         output_path = output_folder / "metadata.json"

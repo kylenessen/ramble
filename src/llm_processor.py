@@ -71,7 +71,7 @@ Please:
 3. **STRUCTURE**: Organize content with clear headings where applicable. If there is a single idea, use only one heading
 4. **PRESERVE FLOW**: Maintain the natural progression of topics and the speaker's original meaning
 5. **COMPLETE**: Naturally finish any incomplete thoughts without adding new ideas
-6. Create concise session title reflecting the main topic 
+6. Create a concise session title reflecting the main topic (max 40 characters)
 
 Format response as JSON:
 {{

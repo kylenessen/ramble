@@ -55,32 +55,7 @@ class TranscriptionService:
                 'confidence': getattr(transcript, 'confidence', 0.0),
                 'audio_duration': getattr(transcript, 'audio_duration', 0),
                 'language_code': 'en_us',  # We set this explicitly in config
-                'words': [],
-                'sentences': []
             }
-            
-            # Add word-level timestamps if available
-            if transcript.words:
-                result['words'] = [
-                    {
-                        'text': word.text,
-                        'start': word.start,
-                        'end': word.end,
-                        'confidence': word.confidence
-                    }
-                    for word in transcript.words
-                ]
-            
-            # Add sentence-level information
-            if hasattr(transcript, 'sentences') and transcript.sentences:
-                result['sentences'] = [
-                    {
-                        'text': sentence.text,
-                        'start': sentence.start,
-                        'end': sentence.end
-                    }
-                    for sentence in transcript.sentences
-                ]
             
             self.logger.info(f"Transcription completed: {len(result['text'])} characters")
             return result
@@ -91,36 +66,4 @@ class TranscriptionService:
     
     def format_transcript_for_output(self, transcript_data: Dict) -> str:
         """Format transcript data for markdown output"""
-        lines = [
-            "# Raw Transcript",
-            "",
-            f"**Duration:** {transcript_data.get('audio_duration', 'Unknown')} ms",
-            f"**Language:** {transcript_data.get('language_code', 'Unknown')}",
-            f"**Confidence:** {transcript_data.get('confidence', 'Unknown'):.2f}",
-            "",
-            "## Transcript Text",
-            "",
-            transcript_data['text'],
-            ""
-        ]
-        
-        # Add word-level timestamps if available
-        if transcript_data.get('words'):
-            lines.extend([
-                "## Word-Level Timestamps",
-                "",
-                "| Word | Start (ms) | End (ms) | Confidence |",
-                "|------|------------|----------|------------|"
-            ])
-            
-            for word in transcript_data['words'][:50]:  # Limit to first 50 words
-                lines.append(
-                    f"| {word['text']} | {word['start']} | {word['end']} | {word['confidence']:.2f} |"
-                )
-            
-            if len(transcript_data['words']) > 50:
-                lines.append("| ... | ... | ... | ... |")
-            
-            lines.append("")
-        
-        return "\n".join(lines)
+        return (transcript_data.get("text") or "").strip() + "\n"
